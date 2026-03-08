@@ -11,7 +11,8 @@ import {
   ChevronRight,
   LogOut,
   Stethoscope,
-  Activity
+  Activity,
+  HeartPulse
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -23,6 +24,7 @@ const menuItems = [
   { icon: CalendarDays, label: "Agenda", href: "/backoffice/agenda", isDev: true },
   { icon: Activity, label: "Corpo Clínico", href: "/backoffice/medicos" },
   { icon: Stethoscope, label: "Especialidades", href: "/backoffice/especialidades" },
+  { icon: HeartPulse, label: "Planos de Saúde", href: "/backoffice/planos" },
   { icon: Users, label: "Pacientes", href: "/backoffice/pacientes", isDev: true },
   { icon: Users, label: "Equipe", href: "/backoffice/usuarios-admin" },
   { icon: Settings, label: "Configurações", href: "/backoffice/configuracoes", isDev: true },
