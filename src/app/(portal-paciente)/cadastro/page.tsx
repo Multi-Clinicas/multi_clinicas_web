@@ -1,40 +1,73 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import api from "@/services/api";
+import { AxiosError } from "axios";
 
 const signupSchema = z.object({
   name: z.string().min(3, "Nome completo obrigatório"),
   email: z.string().email("E-mail inválido"),
-  document: z.string().min(11, "CPF inválido"), // Validação simples para mock
+  document: z.string().min(11, "CPF inválido"),
+  telefone: z.string().min(10, "Telefone inválido"),
   password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
+  cep: z.string().min(8, "CEP inválido"),
+  logradouro: z.string().min(2, "Logradouro obrigatório"),
+  numero: z.string().min(1, "Número obrigatório"),
+  complemento: z.string().optional(),
+  bairro: z.string().min(2, "Bairro obrigatório"),
+  cidade: z.string().min(2, "Cidade obrigatória"),
+  estado: z.string().length(2, "Use a sigla do estado (Ex: SP)"),
 });
 
 type SignupForm = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
   const router = useRouter();
-  const params = useParams();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
   });
 
   const onSubmit = async (data: SignupForm) => {
-    // Simulação do back-end para criação de usuário
-    console.log("Mock enviando dados de cadastro:", data);
-    
-    // Simulando delay de rede
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    setErrorMsg(null);
+    try {
+      const payload = {
+        nome: data.name,
+        email: data.email,
+        cpf: data.document,
+        telefone: data.telefone,
+        senhaHash: data.password,
+        endereco: {
+          cep: data.cep,
+          logradouro: data.logradouro,
+          numero: data.numero,
+          complemento: data.complemento,
+          bairro: data.bairro,
+          cidade: data.cidade,
+          estado: data.estado.toUpperCase(),
+        }
+      };
 
-    // Após o cadastro bem-sucedido, redireciona o paciente para realizar o login
-    router.push(`/login?registered=true`);
+      await api.post("/pacientes", payload);
+      router.push(`/login?registered=true`);
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data) {
+        const responseData = error.response.data as any;
+        const apiMessage = responseData.message || responseData.details?.cpf || "Erro ao realizar cadastro. Verifique os dados informados.";
+        setErrorMsg(apiMessage);
+      } else {
+        setErrorMsg("Ocorreu um erro de conexão com o servidor.");
+      }
+    }
   };
 
   return (
@@ -44,34 +77,99 @@ export default function SignupPage() {
         <p className="text-sm text-text-secondary mt-2">Preencha os campos abaixo para criar seu perfil e agendar consultas.</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 bg-surface-card p-6 rounded-card border border-border-subtle shadow-card max-w-md w-full mx-auto">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-surface-card p-6 rounded-card border border-border-subtle shadow-card max-w-3xl w-full mx-auto">
         
-        <div className="space-y-2">
-          <Label htmlFor="name">Nome Completo</Label>
-          <Input id="name" placeholder="Ex: Maria Silva" {...register("name")} />
-          {errors.name && <p className="text-xs text-status-error">{errors.name.message}</p>}
+        {errorMsg && (
+          <div className="p-3 text-sm bg-status-error/10 text-status-error border border-status-error/20 rounded-lg">
+            {errorMsg}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4 md:col-span-2 border-b border-border-subtle pb-6">
+            <h2 className="text-lg font-bold text-text-primary mb-4">Dados Pessoais</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome Completo</Label>
+                <Input id="name" placeholder="Ex: Maria Silva" {...register("name")} />
+                {errors.name && <p className="text-xs text-status-error">{errors.name.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="document">CPF</Label>
+                <Input id="document" placeholder="000.000.000-00" {...register("document")} />
+                {errors.document && <p className="text-xs text-status-error">{errors.document.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input id="email" type="email" placeholder="seu@email.com" {...register("email")} />
+                {errors.email && <p className="text-xs text-status-error">{errors.email.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="telefone">Telefone</Label>
+                <Input id="telefone" placeholder="(11) 99999-9999" {...register("telefone")} />
+                {errors.telefone && <p className="text-xs text-status-error">{errors.telefone.message}</p>}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input id="password" type="password" placeholder="******" {...register("password")} />
+                {errors.password && <p className="text-xs text-status-error">{errors.password.message}</p>}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 md:col-span-2">
+            <h2 className="text-lg font-bold text-text-primary mb-4">Endereço</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cep">CEP</Label>
+                <Input id="cep" placeholder="00000-000" {...register("cep")} />
+                {errors.cep && <p className="text-xs text-status-error">{errors.cep.message}</p>}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="logradouro">Logradouro</Label>
+                <Input id="logradouro" placeholder="Rua, Avenida, etc" {...register("logradouro")} />
+                {errors.logradouro && <p className="text-xs text-status-error">{errors.logradouro.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="numero">Número</Label>
+                <Input id="numero" placeholder="123" {...register("numero")} />
+                {errors.numero && <p className="text-xs text-status-error">{errors.numero.message}</p>}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="complemento">Complemento <span className="text-text-muted font-normal">(Opcional)</span></Label>
+                <Input id="complemento" placeholder="Apto, Bloco, etc" {...register("complemento")} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bairro">Bairro</Label>
+                <Input id="bairro" placeholder="Centro" {...register("bairro")} />
+                {errors.bairro && <p className="text-xs text-status-error">{errors.bairro.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cidade">Cidade</Label>
+                <Input id="cidade" placeholder="São Paulo" {...register("cidade")} />
+                {errors.cidade && <p className="text-xs text-status-error">{errors.cidade.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="estado">Estado (UF)</Label>
+                <Input id="estado" placeholder="SP" maxLength={2} className="uppercase" {...register("estado")} />
+                {errors.estado && <p className="text-xs text-status-error">{errors.estado.message}</p>}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="document">CPF</Label>
-          <Input id="document" placeholder="000.000.000-00" {...register("document")} />
-          {errors.document && <p className="text-xs text-status-error">{errors.document.message}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="email">E-mail</Label>
-          <Input id="email" type="email" placeholder="seu@email.com" {...register("email")} />
-          {errors.email && <p className="text-xs text-status-error">{errors.email.message}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="password">Senha</Label>
-          <Input id="password" type="password" placeholder="******" {...register("password")} />
-          {errors.password && <p className="text-xs text-status-error">{errors.password.message}</p>}
-        </div>
-
-        <Button type="submit" className="w-full h-12 mt-4" disabled={isSubmitting}>
-          {isSubmitting ? "Criando Conta..." : "Criar Conta"}
+        <Button type="submit" className="w-full h-12 mt-8" disabled={isSubmitting}>
+          {isSubmitting ? "Cadastrando..." : "Concluir Cadastro"}
         </Button>
 
         <div className="text-center mt-6">
