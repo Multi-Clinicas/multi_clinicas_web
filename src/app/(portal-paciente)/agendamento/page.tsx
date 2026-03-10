@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ArrowLeft, UserRound, Stethoscope, Calendar as CalendarIcon, Clock, CheckCircle2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -60,8 +60,9 @@ function SolarArc({ horarios, selectedTime, onSelect }: { horarios: Horario[], s
   );
 }
 
-export default function AgendamentoPage() {
+function AgendamentoContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [selectedEsp, setSelectedEsp] = useState<Especialidade | null>(null);
   const [selectedMed, setSelectedMed] = useState<Medico | null>(null);
@@ -77,6 +78,9 @@ export default function AgendamentoPage() {
   const [availableHorarios, setAvailableHorarios] = useState<Horario[]>([]);
   const [isLoadingHorarios, setIsLoadingHorarios] = useState(false);
 
+  const paramMedicoId = searchParams.get("medicoId");
+  const paramEspecialidade = searchParams.get("especialidade");
+
   useEffect(() => {
     const fetchDadosIniciais = async () => {
       try {
@@ -84,8 +88,24 @@ export default function AgendamentoPage() {
           api.get("/especialidades"),
           api.get("/medicos/ativos")
         ]);
-        setEspecialidades(resEsp.data);
-        setMedicos(resMed.data);
+        const especialidadesData = resEsp.data;
+        const medicosData = resMed.data;
+
+        setEspecialidades(especialidadesData);
+        setMedicos(medicosData);
+
+        if (paramMedicoId && paramEspecialidade) {
+          const medicoEncontrado = medicosData.find((medico: Medico) => medico.id === Number(paramMedicoId));
+          const especialidadeEncontrada = especialidadesData.find(
+            (especialidade: Especialidade) => especialidade.nome === paramEspecialidade
+          );
+
+          if (medicoEncontrado && especialidadeEncontrada) {
+            setSelectedEsp(especialidadeEncontrada);
+            setSelectedMed(medicoEncontrado);
+            setStep(2);
+          }
+        }
       } catch (error) {
         console.error("Erro ao buscar dados iniciais", error);
       } finally {
@@ -93,7 +113,7 @@ export default function AgendamentoPage() {
       }
     };
     fetchDadosIniciais();
-  }, []);
+  }, [paramEspecialidade, paramMedicoId]);
 
   const medicosFiltrados = useMemo(() => {
     if (!selectedEsp) return [];
@@ -264,5 +284,19 @@ export default function AgendamentoPage() {
         </AnimatePresence>
       )}
     </div>
+  );
+}
+
+export default function AgendamentoPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col min-h-[85vh] p-6 bg-surface-page max-w-2xl mx-auto w-full items-center justify-center">
+          <div className="w-8 h-8 border-4 border-accent-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      }
+    >
+      <AgendamentoContent />
+    </Suspense>
   );
 }
