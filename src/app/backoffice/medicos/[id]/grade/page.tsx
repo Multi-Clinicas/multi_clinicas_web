@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -42,22 +42,37 @@ export default function GradeHorarioPage() {
   const router = useRouter();
   const medicoId = params.id as string;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  const { register, control, handleSubmit, formState: { errors } } = useForm<GradeForm>({
+  const { register, control, handleSubmit, reset, formState: { errors } } = useForm<GradeForm>({
     resolver: zodResolver(gradeSchema),
-    defaultValues: {
-      schedules: [
-        { dayOfWeek: 1, startTime: "08:00", endTime: "12:00" },
-        { dayOfWeek: 1, startTime: "13:00", endTime: "18:00" },
-      ]
-    }
+    defaultValues: { schedules: [] }
   });
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: "schedules"
   });
+
+  useEffect(() => {
+    async function loadGrade() {
+      try {
+        const response = await api.get(`/grade-horario/medico/${medicoId}`);
+        const schedules = response.data.map((item: any) => ({
+          dayOfWeek: item.diaSemana,
+          startTime: item.horaInicio.slice(0, 5),
+          endTime: item.horaFim.slice(0, 5),
+        }));
+        reset({ schedules });
+      } catch (error) {
+        console.error("Erro ao carregar grade:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadGrade();
+  }, [medicoId, reset]);
 
   // Utilitário para verificar interseções de tempo no mesmo dia
   const checkIntersections = (schedules: GradeForm['schedules']) => {
@@ -89,12 +104,20 @@ export default function GradeHorarioPage() {
 
     setIsSubmitting(true);
     try {
-      console.log(`Mock: Enviando para PUT /medicos/${medicoId}/grade`, data);
-      await new Promise(resolve => setTimeout(resolve, 800)); // mock delay
+      const payload = data.schedules.map(s => ({
+        medicoId: Number(medicoId),
+        diaSemana: s.dayOfWeek,
+        horaInicio: s.startTime,
+        horaFim: s.endTime
+      }));
+
+      await api.put(`/grade-horario/medico/${medicoId}`, payload);
+      
+      alert("Grade de horários atualizada com sucesso!");
       router.push('/backoffice/medicos');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      setGlobalError("Ocorreu um erro ao salvar a grade.");
+      setGlobalError(error.response?.data?.message || "Ocorreu um erro ao salvar a grade.");
     } finally {
       setIsSubmitting(false);
     }
@@ -103,6 +126,8 @@ export default function GradeHorarioPage() {
   const addTurno = (dayOfWeek: number) => {
     append({ dayOfWeek, startTime: "08:00", endTime: "12:00" });
   };
+
+  if (isLoading) return <div className="p-10 text-center">Carregando horários...</div>;
 
   return (
     <div className="space-y-6 max-w-4xl">

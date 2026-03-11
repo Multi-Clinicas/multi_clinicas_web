@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import api from "@/services/api";
+import { useAuthStore } from "@/store/useAuthStore";
 
 interface Especialidade { id: number; nome: string; }
 interface Medico { id: number; nome: string; especialidades: string[]; }
@@ -81,6 +82,8 @@ function AgendamentoContent() {
   const paramMedicoId = searchParams.get("medicoId");
   const paramEspecialidade = searchParams.get("especialidade");
 
+  const { user } = useAuthStore();
+
   useEffect(() => {
     const fetchDadosIniciais = async () => {
       try {
@@ -128,11 +131,11 @@ function AgendamentoContent() {
       setSelectedTime(null);
       
       try {
-        const response = await api.get("/agendamento/disponibilidade", {
+        const response = await api.get("/agendamentos/disponibilidade", {
             params: { medicoId: selectedMed.id, data: selectedDate}
         });
 
-        const availabreTimes: string[] = response.data;
+        const availabreTimes: string[] = response.data.horariosDisponiveis || [];
 
         const horariosProcessados: Horario[] = availabreTimes.map(time => {
           const hour = parseInt(time.split(":")[0]);
@@ -159,19 +162,23 @@ function AgendamentoContent() {
     setIsFinishing(true);
     try {
       const payload = {
+        pacienteId: Number(user?.id),
         medicoId: selectedMed?.id,
-        especialidadeId: selectedEsp?.id,
-        data: selectedDate,
-        hora: selectedTime
+        dataConsulta: selectedDate,
+        horaInicio: selectedTime,
+        tipoPagamento: "PARTICULAR",
+        observacoes: "Agendado via portal do paciente"
       };
+      
       console.log("Enviando agendamento:", payload);
-      await new Promise(r => setTimeout(r, 1500));
+      await api.post("/agendamentos", payload);
       
       setIsFinishing(false);
       setIsSuccess(true);
     } catch(err) {
       console.error(err);
       setIsFinishing(false);
+      alert("Ocorreu um erro ao tentar agendar sua consulta. Tente novamente.");
     }
   };
 
