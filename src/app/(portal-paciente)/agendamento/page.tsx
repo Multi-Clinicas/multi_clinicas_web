@@ -172,7 +172,8 @@ function AgendamentoContent() {
         medicoId: selectedMed?.id,
         dataConsulta: selectedDate,
         horaInicio: selectedTime,
-        tipoPagamento: "PARTICULAR",
+        tipoPagamento: tipoPagamento,
+        planoSaudeId: tipoPagamento === "CONVENIO" ? selectedPlanoId : null,
         observacoes: "Agendado via portal do paciente"
       };
       
